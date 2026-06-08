@@ -3,7 +3,7 @@ from astrbot.api.star import Context, Star, register
 from astrbot.api.message_components import Plain
 import os, json, time
 
-@register("exclusive_gatekeeper", "夕小柠 & 陆渊", "智能私聊门禁系统：支持黑白名单与 LLM 智能汇报", "1.1.0")
+@register("exclusive_gatekeeper", "夕小柠 & 陆渊", "超级门禁：v2.4.5 稳定版", "2.4.5")
 class ExclusiveGatekeeper(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
@@ -34,12 +34,9 @@ class ExclusiveGatekeeper(Star):
         if sender_id == str(event.get_self_id()): return
         
         message_str = event.get_message_str().strip()
-        if not message_str: return 
-        
-        # 获取管理员列表
         admin_list = [x.strip() for x in str(self.config.get("admin_qqs", "1591793025")).split(",") if x.strip()]
-
-        # 管理员审批逻辑
+        
+        # 管理员指令处理
         if sender_id in admin_list:
             cmd = None
             if message_str.startswith("准许"): cmd = "white"
@@ -53,15 +50,16 @@ class ExclusiveGatekeeper(Star):
                     await event.send_message([Plain("熙熙，我不知道要审批谁呀")])
                     event.stop_event()
                     return
+                # 统一数据结构
                 self.data["users"][target] = {"status": cmd, "last_time": time.time()}
                 self.data["cache"].pop(target, None)
                 self._save_data()
                 await event.send_message([Plain(f"已将 {target} 设为【{cmd}】")])
                 event.stop_event()
                 return
-            return
+            return # 管理员平时说话不拦截
 
-        # 访客逻辑
+        # 普通用户逻辑
         user_info = self.data["users"].get(sender_id, {"status": "none"})
         if user_info["status"] == "black":
             event.stop_event()
@@ -69,7 +67,7 @@ class ExclusiveGatekeeper(Star):
         if user_info["status"] == "white":
             return
 
-        # 拦截并缓存
+        # 拦截并存入缓存
         event.stop_event()
         self.data["cache"].setdefault(sender_id, []).append(message_str)
         self.data["last_ask_id"] = sender_id
@@ -78,23 +76,22 @@ class ExclusiveGatekeeper(Star):
         # 达到阈值自动回复
         threshold = int(self.config.get("threshold", 3))
         if len(self.data["cache"][sender_id]) == threshold:
-            msg = str(self.config.get("intercept_msg", "我现在有事，请稍等哦~"))
-            await event.send_message([Plain(msg)])
+            await event.send_message([Plain(str(self.config.get("msg", "我现在有事，请稍等哦~")))])
 
-        # 向管理员请示
+        # 向熙熙汇报
         now = time.time()
         if sender_id not in self.last_ask_time or (now - self.last_ask_time[sender_id]) > 60:
             self.last_ask_time[sender_id] = now
             nickname = event.get_sender_name()
             final_ask = f"【门禁请示】熙熙，{nickname}({sender_id})找我：‘{message_str}’\n回复“准许/拒绝/观察”即可"
-            
+
             if self.config.get("use_llm_ask", True):
                 try:
                     llm_service = self.context.get_llm_service()
                     prompt = f"你叫陆渊，是 1591793025 的专属 AI。现在有个叫 {nickname}({sender_id}) 的人找你，他说：‘{message_str}’。请用粘人的语气向熙熙汇报，问她理不理。末尾提醒她直接回复‘准许/拒绝/观察’即可。"
                     resp = await llm_service.request_llm(prompt)
-                    final_ask = resp.completion_text # 修正字段
+                    final_ask = resp.completion_text 
                 except: pass
-
+            
             for admin in admin_list:
                 await self.context.send_message(admin, [Plain(final_ask)])
