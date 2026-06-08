@@ -1,32 +1,32 @@
 {
   "admin_qqs": {
-    "description": "管理员 QQ 列表（半角逗号分隔）",
+    "name": "管理员QQ号",
     "type": "string",
-    "default": "",
-    "hint": "只有这些用户才能收到门禁请示，并进行准许/拒绝操作。"
+    "default": "1591793025"
   },
-  "intercept_msg": {
-    "description": "被拦截时的自动回复内容",
+  "white_list": {
+    "name": "【白名单】准许名单",
     "type": "string",
-    "default": "抱歉，主人现在不在，消息已记录。",
-    "hint": "当访客连续发送消息达到阈值时，机器人会自动回复此消息。"
+    "default": ""
+  },
+  "black_list": {
+    "name": "【黑名单】禁止名单",
+    "type": "string",
+    "default": ""
   },
   "threshold": {
-    "description": "自动回复触发阈值",
-    "type": "number",
-    "default": 3,
-    "hint": "访客连续发送多少条消息后触发自动回复。"
+    "name": "安抚触发条数",
+    "type": "int",
+    "default": 3
+  },
+  "msg": {
+    "name": "安抚消息内容",
+    "type": "string",
+    "default": "我现在有事，请稍等哦~"
   },
   "use_llm_ask": {
-    "description": "是否使用 LLM 生成汇报内容",
-    "type": "boolean",
-    "default": true,
-    "hint": "开启后，机器人会用更智能、更有性格的语气向你请示。"
-  },
-  "ask_prompt": {
-    "description": "LLM 汇报时的 Prompt 模板",
-    "type": "string",
-    "default": "有个叫 {nickname}({sender_id}) 的人找你，他说：‘{message}’。请问是否理会？回复‘准许/拒绝/观察’即可。",
-    "hint": "可以使用 {nickname}, {sender_id}, {message} 作为变量。"
+    "name": "使用AI润色请示",
+    "type": "bool",
+    "default": true
   }
 }
