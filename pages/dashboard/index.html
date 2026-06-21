@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>Gatekeeper · 门禁插件</title>
+<style>
+/* ═══ 主题系统 ══════════════════════════════════════════════ */
+[data-theme="kitty"]       { --c1:#f7a8c4;--c1l:#fde8f0;--c1d:#d96090;--c2l:#fff0f7;--bg:#fdf7fb;--surface:#fff;--border:#f0e4ef;--text:#4a3d5c;--texts:#9b8aac;--ok:#72c8a0;--warn:#f9c9a0;--err:#f07a8a;--nav-active:#d96090;--card-shadow:0 2px 16px rgba(200,140,180,.13) }
+[data-theme="melody"]      { --c1:#c9b8e8;--c1l:#ede8f9;--c1d:#8b6cbe;--c2l:#f6f0fe;--bg:#f8f5fd;--surface:#fff;--border:#e8ddf5;--text:#3d335a;--texts:#8b7aac;--ok:#80c8b0;--warn:#f0c8a0;--err:#e07898;--nav-active:#8b6cbe;--card-shadow:0 2px 16px rgba(160,120,220,.13) }
+[data-theme="cinnamoroll"] { --c1:#a8d8f0;--c1l:#dff1fc;--c1d:#4a9ec8;--c2l:#eef8fe;--bg:#f4fbff;--surface:#fff;--border:#d8eef8;--text:#2a4a5a;--texts:#6a9aaa;--ok:#80d0b0;--warn:#f0d898;--err:#e08898;--nav-active:#4a9ec8;--card-shadow:0 2px 16px rgba(80,160,220,.10) }
+[data-theme="keroppi"]     { --c1:#a8dfc8;--c1l:#dff5ec;--c1d:#3a9a72;--c2l:#ebfaf3;--bg:#f4fdf8;--surface:#fff;--border:#d0f0e0;--text:#1e3a2a;--texts:#5a8a6a;--ok:#5ac890;--warn:#f0d880;--err:#e07878;--nav-active:#3a9a72;--card-shadow:0 2px 16px rgba(60,160,100,.10) }
+[data-theme="purin"]       { --c1:#f9c85a;--c1l:#fef4d0;--c1d:#c8900a;--c2l:#fef8e0;--bg:#fffdf4;--surface:#fff;--border:#f5e8c0;--text:#4a3a10;--texts:#9a8040;--ok:#70c880;--warn:#f9c85a;--err:#e07060;--nav-active:#c8900a;--card-shadow:0 2px 16px rgba(200,150,10,.10) }
+[data-theme="pochacco"]    { --c1:#f0a0c0;--c1l:#fce0ec;--c1d:#c05080;--c2l:#feeef6;--bg:#fdf5f9;--surface:#fff;--border:#f0d8e8;--text:#4a2a3a;--texts:#9a7090;--ok:#80c898;--warn:#f8c880;--err:#e06878;--nav-active:#c05080;--card-shadow:0 2px 16px rgba(200,80,120,.10) }
+[data-theme="kuromi"]      { --c1:#a080d0;--c1l:#e8d8f8;--c1d:#6040a8;--c2l:#f0e8fc;--bg:#f5f0fc;--surface:#fff;--border:#d8c8f0;--text:#2a1a4a;--texts:#7060a0;--ok:#80c8a8;--warn:#e8c870;--err:#e06888;--nav-active:#6040a8;--card-shadow:0 2px 16px rgba(100,60,180,.12) }
+[data-theme="twinstar"]    { --c1:#f0a878;--c1l:#fce8d8;--c1d:#c06030;--c2l:#fef0e4;--bg:#fff8f4;--surface:#fff;--border:#f5e0d0;--text:#4a2a1a;--texts:#9a6850;--ok:#80c8a0;--warn:#f8d870;--err:#e06868;--nav-active:#c06030;--card-shadow:0 2px 16px rgba(200,100,50,.10) }
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:68px;-webkit-tap-highlight-color:transparent;transition:background .3s,color .3s}
+
+/* 顶栏 */
+.top-bar{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px 10px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 8px rgba(0,0,0,.05)}
+.top-bar h1{font-size:16px;font-weight:700;flex:1}
+.ver{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--c1l);color:var(--c1d);font-weight:600}
+
+/* 底部导航 */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;height:64px;background:var(--surface);border-top:1px solid var(--border);display:flex;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;color:var(--texts);font-size:10px;font-weight:600;transition:color .2s;padding:0}
+.nav-btn .ni{font-size:20px;line-height:1;transition:transform .2s}
+.nav-btn.active{color:var(--nav-active)}
+.nav-btn.active .ni{transform:scale(1.15)}
+
+/* 页面 */
+.page{display:none;padding:14px 14px 4px}
+.page.active{display:block}
+
+/* 卡片 */
+.card{background:var(--surface);border-radius:16px;border:1px solid var(--border);box-shadow:var(--card-shadow);margin-bottom:12px;overflow:hidden}
+.card-head{padding:13px 15px 11px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.card-head .ci{font-size:17px}
+.card-head h2{font-size:14px;font-weight:700;flex:1}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--c1l);color:var(--c1d);font-weight:600}
+.card-body{padding:13px 15px}
+
+/* 表单 */
+.field{margin-bottom:13px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;color:var(--texts);margin-bottom:5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+input[type=text],input[type=number],textarea,select{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;color:var(--text);background:var(--bg);outline:none;font-family:inherit;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--c1);background:var(--surface)}
+textarea{resize:vertical;min-height:68px;line-height:1.6}
+.row2{display:flex;gap:10px}
+.row2 .field{flex:1}
+
+/* 开关行 */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.tog-row:last-child{border-bottom:none;padding-bottom:0}
+.tl-name{font-size:13px;font-weight:500}
+.tl-sub{font-size:11px;color:var(--texts);margin-top:2px}
+.switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0}
+.switch input{display:none}
+.slider{position:absolute;inset:0;border-radius:24px;background:#d8d0e0;cursor:pointer;transition:.25s}
+.slider::before{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:white;top:3px;left:3px;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+input:checked+.slider{background:var(--c1)}
+input:checked+.slider::before{transform:translateX(18px)}
+
+/* 按钮 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;padding:9px 16px;font-family:inherit;transition:opacity .15s,transform .1s;line-height:1}
+.btn:active{transform:scale(.96)}
+.btn-p{background:var(--c1);color:white}
+.btn-ok{background:var(--ok);color:white}
+.btn-warn{background:var(--warn);color:#6a4a10}
+.btn-err{background:var(--err);color:white}
+.btn-ghost{background:none;border:1.5px solid var(--border);color:var(--texts)}
+.btn-full{width:100%;margin-top:10px}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Tag 输入 */
+.tag-wrap{display:flex;flex-wrap:wrap;gap:5px;border:1.5px solid var(--border);border-radius:10px;padding:7px 10px;background:var(--bg);min-height:42px;cursor:text;transition:border-color .2s}
+.tag-wrap:focus-within{border-color:var(--c1);background:var(--surface)}
+.tag{display:inline-flex;align-items:center;gap:4px;background:var(--c1l);color:var(--c1d);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600}
+.tag .rm{cursor:pointer;font-size:14px;opacity:.7;line-height:1}
+.tag-input{border:none;outline:none;background:none;font-size:13px;color:var(--text);min-width:80px;flex:1}
+.tag-input::placeholder{color:var(--texts)}
+
+/* 门禁列表 */
+.gate-list{display:flex;flex-direction:column;gap:9px}
+.gate-item{border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;background:var(--bg)}
+.gi-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.gi-name{font-size:13px;font-weight:700;flex:1}
+.gi-uid{font-size:11px;color:var(--texts);font-weight:400}
+.sbadge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600}
+.s-pending{background:var(--warn);color:#6a4a10}
+.s-observe{background:var(--c1l);color:var(--c1d)}
+.s-allowed{background:#d8f5e8;color:#2a7a50}
+.s-blocked{background:#fde8e8;color:#c03040}
+.gi-msgs{font-size:12px;color:var(--texts);margin-bottom:9px;line-height:1.7}
+
+/* 日志 */
+.log-list{display:flex;flex-direction:column;gap:7px}
+.log-item{padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.6;border-left:3px solid var(--c1);background:var(--c1l)}
+.log-item.lg{border-color:var(--ok);background:#e8f8f0}
+.log-time{font-size:11px;color:var(--texts);margin-top:3px}
+.log-orig{font-size:11px;color:var(--texts);margin:3px 0 2px;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* 表情包 */
+.moji-stats{display:flex;gap:10px;margin-bottom:12px}
+.moji-stat{flex:1;border-radius:10px;padding:12px 10px;text-align:center;background:var(--c1l)}
+.ms-val{font-size:24px;font-weight:800;color:var(--c1d);line-height:1}
+.ms-lbl{font-size:11px;color:var(--texts);margin-top:3px}
+.moji-entry{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;margin-bottom:7px}
+.me-desc{font-size:13px;flex:1}
+.me-meta{font-size:11px;color:var(--texts);text-align:right;flex-shrink:0}
+
+/* 主题格子 */
+.theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.theme-dot{aspect-ratio:1;border-radius:12px;cursor:pointer;border:2.5px solid transparent;transition:transform .15s,border-color .15s;position:relative;overflow:hidden}
+.theme-dot:active{transform:scale(.93)}
+.theme-dot.active{border-color:var(--text)}
+.theme-bg{position:absolute;inset:0;border-radius:10px}
+.theme-lbl{position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:white;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+/* Toast */
+#toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:rgba(40,30,60,.9);color:white;padding:8px 20px;border-radius:20px;font-size:13px;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+
+/* 空状态 */
+.empty{text-align:center;padding:28px 16px;color:var(--texts);font-size:13px}
+.empty .ei{font-size:36px;margin-bottom:7px}
+</style>
+</head>
+<body data-theme="kitty">
+
+<div class="top-bar">
+  <div style="font-size:20px">🏮</div>
+  <h1>Gatekeeper</h1>
+  <span class="ver">v1.1.0</span>
+</div>
+
+<!-- PAGE: 门禁 -->
+<div class="page active" id="page-gate">
+  <div class="card">
+    <div class="card-head"><span class="ci">🚪</span><h2>门禁系统</h2><span class="badge" id="badge-pending">0 待处理</span></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">启用门禁</div><div class="tl-sub">关闭后所有消息直接放行</div></div>
+        <label class="switch"><input type="checkbox" id="gate-enabled" checked/><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>请示消息（超过阈值后发给对方）</label>
+        <textarea id="gate-pending-msg" rows="2"></textarea>
+      </div>
+      <div class="row2">
+        <div class="field"><label>消息缓存上限</label><input type="number" id="gate-cache-limit" min="1" max="200"/></div>
+        <div class="field"><label>触发请示阈值（条）</label><input type="number" id="gate-trigger" min="1" max="100"/></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>观察间隔（小时）</label><input type="number" id="gate-observe-interval" min="1"/></div>
+        <div class="field"><label>最大观察轮数</label><input type="number" id="gate-observe-rounds" min="1"/></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📋</span><h2>白名单 · 黑名单</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <label>⬜ 白名单（Enter 添加）</label>
+        <div class="tag-wrap" id="wl-wrap" onclick="fi('wl-input')"><input class="tag-input" id="wl-input" placeholder="输入QQ号"/></div>
+      </div>
+      <div class="field">
+        <label>⬛ 黑名单（Enter 添加）</label>
+        <div class="tag-wrap" id="bl-wrap" onclick="fi('bl-input')"><input class="tag-input" id="bl-input" placeholder="输入QQ号"/></div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📬</span><h2>待处理用户</h2>
+      <button class="btn btn-ghost btn-sm" onclick="clearGateState()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="gate-state-list"><div class="empty"><div class="ei">🌸</div>加载中...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📜</span><h2>门禁记录</h2>
+      <button class="btn btn-ghost btn-sm" onclick="clearGateLog()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="gate-log-list"><div class="empty"><div class="ei">🌙</div>暂无记录</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 验证 -->
+<div class="page" id="page-dual">
+  <div class="card">
+    <div class="card-head"><span class="ci">🧠</span><h2>双模型验证</h2></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">群聊拦截</div><div class="tl-sub">超长回复触发思维链检测</div></div>
+        <label class="switch"><input type="checkbox" id="dm-group" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">私聊拦截</div><div class="tl-sub">管理员私聊不受影响</div></div>
+        <label class="switch"><input type="checkbox" id="dm-private" checked/><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin-top:13px"><label>触发字数下限</label><input type="number" id="dm-min-len" min="50" max="2000"/></div>
+      <div class="field">
+        <label>验证 & 生成模型</label>
+        <div id="dm-judge-model-display" style="padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);font-size:13px;color:var(--texts)">跟随主模型</div>
+        <div class="tl-sub" style="margin-top:5px">前往 AstrBot 后台 → 插件配置 中选择模型提供商</div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">🛡️</span><h2>拦截记录</h2><span class="badge" id="badge-intercept">0 条</span>
+      <button class="btn btn-ghost btn-sm" onclick="clearInterceptLog()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="intercept-log-list"><div class="empty"><div class="ei">✨</div>没有拦截记录</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 表情 -->
+<div class="page" id="page-moji">
+  <div class="card">
+    <div class="card-head"><span class="ci">🎭</span><h2>表情包缓存</h2></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">群聊识别</div></div>
+        <label class="switch"><input type="checkbox" id="moji-group" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">私聊识别</div></div>
+        <label class="switch"><input type="checkbox" id="moji-private" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">管理员私聊识别</div></div>
+        <label class="switch"><input type="checkbox" id="moji-admin"/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">🚫 完全不读取表情包</div><div class="tl-sub">忽略所有图片</div></div>
+        <label class="switch"><input type="checkbox" id="moji-no-read"/><span class="slider"></span></label>
+      </div>
+      <div class="row2" style="margin-top:13px">
+        <div class="field"><label>缓存上限（最多500）</label><input type="number" id="moji-limit" min="10" max="500"/></div>
+        <div class="field"><label>表情包尺寸上限（px）</label><input type="number" id="moji-sticker-size" min="0" max="4096" placeholder="0=不限制"/></div>
+      </div>
+      <div class="field">
+        <label>视觉识别模型（备用，优先用 AstrBot 默认图片转述模型）</label>
+        <div id="moji-vision-model-display" style="padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);font-size:13px;color:var(--texts)">跟随主模型</div>
+        <div class="tl-sub" style="margin-top:5px">已优先使用 AstrBot 后台「服务提供商 → 默认图片转述模型」，此处仅当那个失败时才会用作降级备选，可在插件配置面板中选择</div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📊</span><h2>缓存状态</h2></div>
+    <div class="card-body">
+      <div class="moji-stats">
+        <div class="moji-stat"><div class="ms-val" id="moji-count">—</div><div class="ms-lbl">已缓存</div></div>
+        <div class="moji-stat" style="background:var(--c2l)"><div class="ms-val" id="moji-limit-disp">500</div><div class="ms-lbl">上限</div></div>
+      </div>
+      <div id="moji-cache-list"><div class="empty"><div class="ei">🖼️</div>缓存为空</div></div>
+      <button class="btn btn-err btn-full btn-sm" style="margin-top:10px" onclick="clearMoji()">🗑️ 清空缓存</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: 设置 -->
+<div class="page" id="page-cfg">
+  <div class="card">
+    <div class="card-head"><span class="ci">👑</span><h2>全局配置</h2></div>
+    <div class="card-body">
+      <div class="field">
+        <label>管理员 QQ号（Enter 添加）</label>
+        <div class="tag-wrap" id="admin-wrap" onclick="fi('admin-input')"><input class="tag-input" id="admin-input" placeholder="输入QQ号"/></div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">🎨</span><h2>界面主题</h2></div>
+    <div class="card-body"><div class="theme-grid" id="theme-grid"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">ℹ️</span><h2>关于</h2></div>
+    <div class="card-body" style="font-size:13px;color:var(--texts);line-height:1.9">
+      <p>🏮 <b style="color:var(--text)">Gatekeeper</b> · 门禁插件 v1.1.0</p>
+      <p>门禁系统 · 双模型验证 · 表情包缓存</p>
+      <p>by 夕小柠 · 为 陆渊 bot 定制 🌸</p>
+    </div>
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchPage('gate',this)"><span class="ni">🚪</span>门禁</button>
+  <button class="nav-btn" onclick="switchPage('dual',this)"><span class="ni">🧠</span>验证</button>
+  <button class="nav-btn" onclick="switchPage('moji',this)"><span class="ni">🎭</span>表情</button>
+  <button class="nav-btn" onclick="switchPage('cfg',this)"><span class="ni">⚙️</span>设置</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+/* ═══ Bridge SDK（内联 polyfill，与 sleep_sense 同款）═══ */
+if (!window.AstrBotPluginPage) {
+(function() {
+  const CHANNEL = "astrbot-plugin-page";
+  const SELF_ORIGIN = window.location.origin;
+  const pending = new Map();
+  let counter = 0, parentOrigin = null, resolveReady;
+  const readyPromise = new Promise(r => { resolveReady = r; });
+  const targetOrigin = () => (parentOrigin && parentOrigin !== "null") ? parentOrigin : (SELF_ORIGIN !== "null" ? SELF_ORIGIN : "*");
+  const send = (kind, payload) => window.parent.postMessage({ channel: CHANNEL, kind, ...(payload||{}) }, targetOrigin());
+  const makeReq = (action, payload) => new Promise((resolve, reject) => {
+    const requestId = "req_" + (++counter);
+    pending.set(requestId, { resolve, reject });
+    send("request", { requestId, action, ...(payload||{}) });
+  });
+  window.addEventListener("message", e => {
+    if (e.source !== window.parent) return;
+    if (parentOrigin && e.origin !== parentOrigin) return;
+    if (!parentOrigin) parentOrigin = e.origin;
+    const m = e.data;
+    if (!m || m.channel !== CHANNEL) return;
+    if (m.kind === "context") { if (resolveReady) { resolveReady(m.context); resolveReady = null; } return; }
+    if (m.kind === "response") {
+      const p = pending.get(m.requestId); if (!p) return;
+      pending.delete(m.requestId);
+      m.ok ? p.resolve(m.data) : p.reject(new Error(m.error || "bridge error"));
+    }
+  });
+  window.AstrBotPluginPage = {
+    ready: () => readyPromise,
+    apiGet:  (endpoint, params) => makeReq("api:get",  { endpoint, params }),
+    apiPost: (endpoint, body)   => makeReq("api:post", { endpoint, body }),
+  };
+  send("ready");
+  setTimeout(() => { if (resolveReady) { resolveReady({}); resolveReady = null; } }, 5000);
+})();
+}
+const bridge = window.AstrBotPluginPage;
+const P = "astrbot_plugin_gatekeeper";
+
+// apiGet/apiPost 使用相对路径（不含插件名前缀），bridge 会自动拼接
+async function apiGet(ep)        { return bridge.apiGet(ep) }
+async function apiPost(ep, body) { return bridge.apiPost(ep, body) }
+
+/* ═══ 主题 ═════════════════════════════════════════════════ */
+const THEMES = [
+  {id:'kitty',      lbl:'草莓蛋糕', c:['#f7a8c4','#fde8f0','#fff0f5']},
+  {id:'melody',     lbl:'蓝莓奶油', c:['#c9b8e8','#ede8f9','#f6f0fe']},
+  {id:'cinnamoroll',lbl:'薄荷冰淇', c:['#a8d8f0','#dff1fc','#eef8fe']},
+  {id:'keroppi',    lbl:'抹茶布丁', c:['#a8dfc8','#dff5ec','#ebfaf3']},
+  {id:'purin',      lbl:'焦糖布丁', c:['#f9c85a','#fef4d0','#fef8e0']},
+  {id:'pochacco',   lbl:'草莓牛奶', c:['#f0a0c0','#fce0ec','#feeef6']},
+  {id:'kuromi',     lbl:'夜空星梦', c:['#a080d0','#e8d8f8','#f0e8fc']},
+  {id:'twinstar',   lbl:'珊瑚日落', c:['#f0a878','#fce8d8','#fef0e4']},
+];
+
+let _theme = 'kitty';
+function applyTheme(id) {
+  _theme = id;
+  document.body.setAttribute('data-theme', id);
+  document.querySelectorAll('.theme-dot').forEach(d => d.classList.toggle('active', d.dataset.id === id));
+}
+function initThemeGrid() {
+  const g = document.getElementById('theme-grid');
+  g.innerHTML = '';
+  THEMES.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'theme-dot' + (t.id === _theme ? ' active' : '');
+    d.dataset.id = t.id; d.title = t.lbl;
+    d.innerHTML = `<div class="theme-bg" style="background:linear-gradient(135deg,${t.c[0]},${t.c[1]},${t.c[2]})"></div><div class="theme-lbl">${t.lbl}</div>`;
+    d.onclick = () => { applyTheme(t.id); saveTheme(); };
+    g.appendChild(d);
+  });
+}
+async function saveTheme() {
+  // 主题存入后端config
+  const cfg = buildConfig();
+  cfg._theme = _theme;
+  try { await bridge.apiPost("config", { config: cfg }); } catch(e) { console.warn("theme save failed", e); }
+}
+
+/* ═══ 页面切换 ══════════════════════════════════════════════ */
+function switchPage(n, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+n).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ═══ Toast ════════════════════════════════════════════════ */
+function toast(msg, ms=2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ═══ Tag 输入 ══════════════════════════════════════════════ */
+function fi(id) { document.getElementById(id)?.focus(); }
+function initTag(inputId, wrapId, tags=[]) {
+  const wrap = document.getElementById(wrapId), inp = document.getElementById(inputId);
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  tags.forEach(v => _addTag(wrap, inp, String(v)));
+  inp.addEventListener('keydown', e => {
+    if (e.key==='Enter'||e.key===',') { e.preventDefault(); const v=inp.value.trim(); if(v){_addTag(wrap,inp,v);inp.value='';} }
+    else if (e.key==='Backspace'&&!inp.value) { const ts=wrap.querySelectorAll('.tag'); if(ts.length)ts[ts.length-1].remove(); }
+  });
+}
+function _addTag(wrap, inp, v) {
+  const t=document.createElement('span'); t.className='tag';
+  const tx=document.createTextNode(v), rm=document.createElement('span');
+  rm.className='rm'; rm.textContent='×'; rm.onclick=()=>t.remove();
+  t.appendChild(tx); t.appendChild(rm); wrap.insertBefore(t,inp);
+}
+function getTags(wrapId) {
+  return [...document.getElementById(wrapId).querySelectorAll('.tag')].map(t=>t.childNodes[0].textContent.trim()).filter(Boolean);
+}
+
+/* ═══ 配置 ══════════════════════════════════════════════════ */
+let _lastCfg = {};
+async function loadConfig() {
+  let c = {};
+  try {
+    const res = await bridge.apiGet("config");
+    // sleep_sense 同款：兼容裸 dict 和 {config:{...}} 两种
+    c = (res && res.config) ? res.config : (res || {});
+  } catch(e) { console.warn('[gatekeeper] loadConfig failed:', e); }
+  _lastCfg = c;
+  if (c._theme) applyTheme(c._theme);
+  initThemeGrid();
+
+  initTag('admin-input','admin-wrap', c.admins||[]);
+  const g=c.gate||{};
+  setck('gate-enabled', g.enabled!==false);
+  setv('gate-pending-msg', g.pending_msg||'稍等一下，等熙熙同意哦～');
+  setv('gate-cache-limit', g.cache_limit??20);
+  setv('gate-trigger',     g.trigger_threshold??5);
+  setv('gate-observe-interval', g.observe_interval_hours??2);
+  setv('gate-observe-rounds',   g.observe_max_rounds??3);
+  initTag('wl-input','wl-wrap', c.gate_whitelist||[]);
+  initTag('bl-input','bl-wrap', c.gate_blacklist||[]);
+
+  const dm=c.dual_model||{};
+  setck('dm-group',   dm.group_enabled!==false);
+  setck('dm-private', dm.private_enabled!==false);
+  setv('dm-min-len',     dm.min_length??100);
+
+  const m=c.moji||{};
+  setck('moji-group',   m.group_enabled!==false);
+  setck('moji-private', m.private_enabled!==false);
+  setck('moji-admin',   !!m.admin_enabled);
+  setck('moji-no-read', !!m.no_read_enabled);
+  setv('moji-limit',    m.cache_limit??500);
+  setv('moji-sticker-size', m.sticker_max_size??512);
+  document.getElementById('moji-limit-disp').textContent = m.cache_limit??500;
+
+  // 模型选择走 AstrBot 原生配置面板（_special: select_provider），此处只展示当前值
+  document.getElementById('dm-judge-model-display').textContent = dm.judge_model || '跟随主模型';
+  document.getElementById('moji-vision-model-display').textContent = m.vision_model || '跟随主模型';
+}
+
+function buildConfig() {
+  return {
+    admins: getTags('admin-wrap'),
+    gate:{
+      enabled:                document.getElementById('gate-enabled').checked,
+      pending_msg:            document.getElementById('gate-pending-msg').value,
+      cache_limit:           +document.getElementById('gate-cache-limit').value,
+      trigger_threshold:     +document.getElementById('gate-trigger').value,
+      observe_interval_hours:+document.getElementById('gate-observe-interval').value,
+      observe_max_rounds:    +document.getElementById('gate-observe-rounds').value,
+    },
+    gate_whitelist: getTags('wl-wrap'),
+    gate_blacklist: getTags('bl-wrap'),
+    dual_model:{
+      group_enabled:   document.getElementById('dm-group').checked,
+      private_enabled: document.getElementById('dm-private').checked,
+      min_length:     +document.getElementById('dm-min-len').value,
+      judge_model:     _lastCfg?.dual_model?.judge_model || '',  // 只读，由后台配置面板管理
+    },
+    moji:{
+      group_enabled:   document.getElementById('moji-group').checked,
+      private_enabled: document.getElementById('moji-private').checked,
+      admin_enabled:   document.getElementById('moji-admin').checked,
+      no_read_enabled: document.getElementById('moji-no-read').checked,
+      cache_limit:    +document.getElementById('moji-limit').value,
+      sticker_max_size: +document.getElementById('moji-sticker-size').value,
+      vision_model:    _lastCfg?.moji?.vision_model || '',  // 只读，由后台配置面板管理
+    },
+    _theme,
+  };
+}
+async function saveConfig() {
+  const cfg = buildConfig();
+  try {
+    const res = await Promise.race([
+      bridge.apiPost("config", { config: cfg }),
+      new Promise((_,rej) => setTimeout(()=>rej(new Error('保存超时')), 8000))
+    ]);
+    if (!res || (!res.ok && !res.success && res.status !== 'ok'))
+      throw new Error((res && res.msg) || '保存失败');
+    document.getElementById('moji-limit-disp').textContent = cfg.moji.cache_limit;
+    toast('✅ 配置已保存');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+function setv(id,v){const e=document.getElementById(id);if(e)e.value=v}
+function setck(id,v){const e=document.getElementById(id);if(e)e.checked=v}
+
+/* ═══ 门禁状态 ══════════════════════════════════════════════ */
+const STATUS={pending:['s-pending','待处理'],observe:['s-observe','观察中'],allowed:['s-allowed','已通过'],blocked:['s-blocked','已拉黑']};
+async function loadGateState() {
+  const d = await bridge.apiGet("gate_state");
+  const data = d || {};
+  const entries = Object.entries(data);
+  const pending=entries.filter(([,v])=>['pending','observe'].includes(v.status));
+  document.getElementById('badge-pending').textContent=`${pending.length} 待处理`;
+  const el=document.getElementById('gate-state-list');
+  if(!entries.length){el.innerHTML='<div class="empty"><div class="ei">🌸</div>暂无待处理</div>';return}
+  el.innerHTML='<div class="gate-list">'+entries.sort((a,b)=>(b[1].created_at||0)-(a[1].created_at||0)).map(([uid,info])=>{
+    const[sc,sl]=STATUS[info.status]||['s-pending','未知'];
+    const msgs=(info.messages||[]).slice(-3).map(m=>`<div>• ${esc(m.slice(0,45))}${m.length>45?'…':''}</div>`).join('');
+    const act=['pending','observe'].includes(info.status);
+    return `<div class="gate-item"><div class="gi-head"><div class="gi-name">${esc(info.name||uid)} <span class="gi-uid">${uid}</span></div><span class="sbadge ${sc}">${sl}</span></div><div class="gi-msgs">${msgs||'（无消息）'}</div>${act?`<div class="btn-group"><button class="btn btn-ok btn-sm" onclick="gateAct('${uid}','allow')">✅ 同意</button><button class="btn btn-warn btn-sm" onclick="gateAct('${uid}','observe')">👀 观察</button><button class="btn btn-err btn-sm" onclick="gateAct('${uid}','block')">🚫 拉黑</button></div>`:''}</div>`;
+  }).join('')+'</div>';
+}
+async function gateAct(uid, action) {
+  await bridge.apiPost("gate_action", {uid, action});
+  const L={allow:'✅ 已同意',observe:'👀 观察中',block:'🚫 已拉黑'};
+  toast(L[action]||'已处理');
+  loadGateState(); loadGateLog(); loadConfig();
+}
+async function loadGateLog() {
+  const d = await bridge.apiGet("gate_log");
+  const raw = Array.isArray(d) ? d : [];
+  const logs = raw.slice().reverse().slice(0,30);
+  const el=document.getElementById('gate-log-list');
+  if(!logs.length){el.innerHTML='<div class="empty"><div class="ei">🌙</div>暂无记录</div>';return}
+  const AL={allow:'✅ 同意',observe:'👀 观察',block:'🚫 拉黑',auto_block:'🤖 自动拒绝'};
+  el.innerHTML='<div class="log-list">'+logs.map(l=>`<div class="log-item lg"><b>${esc(l.name||l.uid)}</b>（${l.uid}）→ ${AL[l.action]||l.action}${l.detail?`<div style="font-size:11px;color:var(--texts)">${esc(l.detail)}</div>`:''}<div class="log-time">${(l.time||'').slice(0,16)}</div></div>`).join('')+'</div>';
+}
+
+/* ═══ 拦截记录 ══════════════════════════════════════════════ */
+async function loadInterceptLog() {
+  const d = await bridge.apiGet("intercept_log");
+  const all = Array.isArray(d) ? d : [];
+  document.getElementById('badge-intercept').textContent=`${all.length} 条`;
+  const logs = all.slice().reverse().slice(0,30);
+  const el=document.getElementById('intercept-log-list');
+  if(!logs.length){el.innerHTML='<div class="empty"><div class="ei">✨</div>没有拦截记录</div>';return}
+  el.innerHTML='<div class="log-list">'+logs.map(l=>`<div class="log-item"><b>${esc(l.name||l.uid)}</b>（${l.uid}）— 思维链泄露<div class="log-orig">原文：${esc((l.original||'').slice(0,100))}</div><div style="font-size:12px;margin-top:2px">→ ${esc(l.generated||'')}</div><div class="log-time">${(l.time||'').slice(0,16)}</div></div>`).join('')+'</div>';
+}
+
+/* ═══ 表情包 ════════════════════════════════════════════════ */
+async function loadMoji() {
+  const d = await bridge.apiGet("moji_cache");
+  const cache = d || {};
+  const entries = Object.entries(cache).sort((a,b)=>(b[1].last_used||0)-(a[1].last_used||0));
+  document.getElementById('moji-count').textContent=entries.length;
+  const el=document.getElementById('moji-cache-list');
+  if(!entries.length){el.innerHTML='<div class="empty"><div class="ei">🖼️</div>缓存为空</div>';return}
+  el.innerHTML=entries.slice(0,50).map(([,info])=>`<div class="moji-entry"><span style="font-size:18px">🖼️</span><div class="me-desc">${esc(info.desc||'（无描述）')}</div><div class="me-meta">×${info.use_count||0}<br/>${fmtTs(info.last_used)}</div></div>`).join('');
+}
+async function clearMoji() {
+  if(!confirm('确认清空全部表情包缓存？'))return;
+  await bridge.apiPost("moji_clear", {});
+  toast('🗑️ 缓存已清空'); loadMoji();
+}
+
+async function clearGateLog() {
+  if(!confirm('确认清空门禁记录？'))return;
+  await bridge.apiPost("gate_log_clear", {});
+  toast('🗑️ 门禁记录已清空'); loadGateLog();
+}
+
+async function clearInterceptLog() {
+  if(!confirm('确认清空拦截记录？'))return;
+  await bridge.apiPost("intercept_log_clear", {});
+  toast('🗑️ 拦截记录已清空'); loadInterceptLog();
+}
+
+async function clearGateState() {
+  if(!confirm('确认清除所有待处理/观察中记录？（不影响已生效的白名单/黑名单）'))return;
+  await bridge.apiPost("gate_state_clear", {});
+  toast('🗑️ 已清除'); loadGateState();
+}
+
+/* ═══ 工具 ══════════════════════════════════════════════════ */
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function fmtTs(ts){if(!ts)return'';const d=new Date(ts*1e3);return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+
+/* ═══ 启动（照抄 sleep_sense 模式）══════════════════════ */
+(async()=>{
+  // 等 bridge ready，最多 5 秒超时
+  try {
+    await Promise.race([
+      bridge.ready(),
+      new Promise((_,rej) => setTimeout(()=>rej(new Error('bridge timeout')), 5000))
+    ]).catch(()=>{});
+  } catch(e) { console.warn('[gatekeeper] bridge.ready timeout, continuing'); }
+
+  await loadConfig();
+  await loadGateState();
+  await loadGateLog();
+  await loadInterceptLog();
+  await loadMoji();
+  setInterval(()=>{ loadGateState(); loadInterceptLog(); }, 30000);
+})();
+</script>
+</body>
+</html>

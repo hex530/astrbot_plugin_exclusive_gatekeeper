@@ -1,32 +1,44 @@
 {
-  "admin_qqs": {
-    "name": "管理员QQ号",
-    "type": "string",
-    "default": "1591793025"
+  "admins": {
+    "description": "管理员QQ号列表",
+    "type": "list",
+    "default": []
   },
-  "white_list": {
-    "name": "【白名单】准许名单",
-    "type": "string",
-    "default": ""
+  "gate": {
+    "description": "门禁系统配置",
+    "type": "object",
+    "items": {
+      "enabled": { "description": "启用门禁", "type": "bool", "default": true },
+      "pending_msg": { "description": "触发阈值后发给对方的消息", "type": "string", "default": "稍等一下，等熙熙同意哦～" },
+      "cache_limit": { "description": "消息缓存上限", "type": "int", "default": 20 },
+      "trigger_threshold": { "description": "触发请示的消息条数", "type": "int", "default": 5 },
+      "observe_interval_hours": { "description": "观察轮次间隔（小时）", "type": "int", "default": 2 },
+      "observe_max_rounds": { "description": "最大观察轮数，超过后自动拒绝", "type": "int", "default": 3 }
+    }
   },
-  "black_list": {
-    "name": "【黑名单】禁止名单",
-    "type": "string",
-    "default": ""
+  "gate_whitelist": { "description": "白名单QQ号", "type": "list", "default": [] },
+  "gate_blacklist": { "description": "黑名单QQ号", "type": "list", "default": [] },
+  "dual_model": {
+    "description": "双模型验证配置",
+    "type": "object",
+    "items": {
+      "group_enabled": { "description": "群聊开启拦截", "type": "bool", "default": true },
+      "private_enabled": { "description": "私聊开启拦截（管理员除外）", "type": "bool", "default": true },
+      "min_length": { "description": "触发检测的最小字数", "type": "int", "default": 100 },
+      "judge_model": { "description": "验证与生成用的模型（留空=主模型）", "type": "string", "default": "", "_special": "select_provider", "hint": "选择已配置好的模型提供商，留空则使用主模型" }
+    }
   },
-  "threshold": {
-    "name": "安抚触发条数",
-    "type": "int",
-    "default": 3
-  },
-  "msg": {
-    "name": "安抚消息内容",
-    "type": "string",
-    "default": "我现在有事，请稍等哦~"
-  },
-  "use_llm_ask": {
-    "name": "使用AI润色请示",
-    "type": "bool",
-    "default": true
+  "moji": {
+    "description": "表情包缓存配置",
+    "type": "object",
+    "items": {
+      "group_enabled": { "description": "群聊识别表情包", "type": "bool", "default": true },
+      "private_enabled": { "description": "私聊识别表情包", "type": "bool", "default": true },
+      "admin_enabled": { "description": "管理员私聊也识别", "type": "bool", "default": false },
+      "no_read_enabled": { "description": "完全不读取表情包", "type": "bool", "default": false },
+      "cache_limit": { "description": "缓存上限（最多500）", "type": "int", "default": 500 },
+      "sticker_max_size": { "description": "表情包尺寸上限（像素，长边超过此值视为照片不缓存，0=不限制）", "type": "int", "default": 512 },
+      "vision_model": { "description": "视觉识别模型（已优先使用AstrBot后台「默认图片转述模型」，此项仅作降级备用）", "type": "string", "default": "", "_special": "select_provider", "hint": "插件会优先调用 AstrBot 后台「服务提供商→默认图片转述模型」，只有那个失败时才会用这里选的模型" }
+    }
   }
 }

@@ -1,4 +1,7 @@
-name: exclusive_gatekeeper
-version: 2.4.5
-author: 夕小柠 & 陆渊
-description: 超级门禁：智能私聊拦截与审批系统。
+plugin_name: astrbot_plugin_gatekeeper
+name: astrbot_plugin_gatekeeper
+plugin_version: 1.1.0
+version: 1.1.0
+author: 夕小柠
+description: 门禁插件 · 门禁系统 + 双模型验证 + 表情包缓存
+repo: ""
