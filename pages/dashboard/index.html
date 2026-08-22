@@ -95,6 +95,16 @@ input:checked+.slider::before{transform:translateX(18px)}
 .s-observe{background:var(--c1l);color:var(--c1d)}
 .s-allowed{background:#d8f5e8;color:#2a7a50}
 .s-blocked{background:#fde8e8;color:#c03040}
+.s-silenced{background:var(--warn);color:#6a4a10}
+.s-givenup{background:#fde8e8;color:#c03040}
+.lvl-WARNING{border-left-color:var(--warn) !important;background:#fff8ea !important}
+.lvl-ERROR,.lvl-CRITICAL{border-left-color:var(--err) !important;background:#fdeeee !important}
+.lvl-tag{font-size:10px;padding:1px 7px;border-radius:10px;font-weight:700;margin-right:6px}
+.lvl-tag.WARNING{background:var(--warn);color:#6a4a10}
+.lvl-tag.ERROR,.lvl-tag.CRITICAL{background:var(--err);color:#fff}
+.chat-bubble{padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.6;max-width:92%;white-space:pre-wrap;word-break:break-word}
+.chat-bubble.user{align-self:flex-end;background:var(--c1);color:#fff}
+.chat-bubble.assistant{align-self:flex-start;background:var(--bg);border:1.5px solid var(--border)}
 .gi-msgs{font-size:12px;color:var(--texts);margin-bottom:9px;line-height:1.7}
 
 /* 日志 */
@@ -129,13 +139,19 @@ input:checked+.slider::before{transform:translateX(18px)}
 .empty{text-align:center;padding:28px 16px;color:var(--texts);font-size:13px}
 .empty .ei{font-size:36px;margin-bottom:7px}
 </style>
+  <!-- 显式引入 AstrBot 的 bridge SDK。
+       AstrBot 会自动注入它，但注入时机在页面 HTML 之后；本页脚本是内联的、
+       会立刻执行，那时 window.AstrBotPluginPage 还不存在。
+       官方文档「调试建议」明确写了：bridge 不存在 → 确认脚本在 SDK 注入之后运行。
+       在自己的脚本前显式引一次即可。 -->
+  <script src="/api/plugin/page/bridge-sdk.js"></script>
 </head>
 <body data-theme="kitty">
 
 <div class="top-bar">
   <div style="font-size:20px">🏮</div>
   <h1>Gatekeeper</h1>
-  <span class="ver">v1.1.0</span>
+  <span class="ver">v1.3.3</span>
 </div>
 
 <!-- PAGE: 门禁 -->
@@ -146,6 +162,10 @@ input:checked+.slider::before{transform:translateX(18px)}
       <div class="tog-row" style="padding-top:0">
         <div><div class="tl-name">启用门禁</div><div class="tl-sub">关闭后所有消息直接放行</div></div>
         <label class="switch"><input type="checkbox" id="gate-enabled" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">拉黑时删除好友</div><div class="tl-sub" style="color:var(--err)">⚠️ 不可逆，对方需重新加好友</div></div>
+        <label class="switch"><input type="checkbox" id="gate-del-friend"/><span class="slider"></span></label>
       </div>
       <div class="field" style="margin-top:12px">
         <label>请示消息（超过阈值后发给对方）</label>
@@ -202,6 +222,10 @@ input:checked+.slider::before{transform:translateX(18px)}
         <div><div class="tl-name">私聊拦截</div><div class="tl-sub">管理员私聊不受影响</div></div>
         <label class="switch"><input type="checkbox" id="dm-private" checked/><span class="slider"></span></label>
       </div>
+      <div class="tog-row">
+        <div><div class="tl-name">只检查模型回复</div><div class="tl-sub">不误伤其它插件输出的长文本</div></div>
+        <label class="switch"><input type="checkbox" id="dm-only-llm" checked/><span class="slider"></span></label>
+      </div>
       <div class="field" style="margin-top:13px"><label>触发字数下限</label><input type="number" id="dm-min-len" min="50" max="2000"/></div>
       <div class="field">
         <label>验证 & 生成模型</label>
@@ -244,6 +268,19 @@ input:checked+.slider::before{transform:translateX(18px)}
         <div class="field"><label>缓存上限（最多500）</label><input type="number" id="moji-limit" min="10" max="500"/></div>
         <div class="field"><label>表情包尺寸上限（px）</label><input type="number" id="moji-sticker-size" min="0" max="4096" placeholder="0=不限制"/></div>
       </div>
+      <div class="tog-row" style="margin-top:6px">
+        <div><div class="tl-name">共享给 quote_tag</div><div class="tl-sub">让 bot 也能把别人发的表情包发出去</div></div>
+        <label class="switch"><input type="checkbox" id="share-enabled"/><span class="slider"></span></label>
+      </div>
+      <div class="row2" style="margin-top:13px">
+        <div class="field"><label>最多共享数量</label><input type="number" id="share-max" min="10" max="2000"/></div>
+        <div class="field"><label>单文件上限（KB）</label><input type="number" id="share-kb" min="64" max="20480"/></div>
+      </div>
+      <div class="field">
+        <label>quote_tag 表情包目录</label>
+        <input type="text" id="share-dir" placeholder="留空=自动推算，一般不用填"/>
+        <div class="tl-sub" style="margin-top:5px">超出数量时只清理本插件写入的，你手动上传的表情包不会被删</div>
+      </div>
       <div class="field">
         <label>视觉识别模型（备用，优先用 AstrBot 默认图片转述模型）</label>
         <div id="moji-vision-model-display" style="padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);font-size:13px;color:var(--texts)">跟随主模型</div>
@@ -262,6 +299,132 @@ input:checked+.slider::before{transform:translateX(18px)}
       <div id="moji-cache-list"><div class="empty"><div class="ei">🖼️</div>缓存为空</div></div>
       <button class="btn btn-err btn-full btn-sm" style="margin-top:10px" onclick="clearMoji()">🗑️ 清空缓存</button>
     </div>
+  </div>
+</div>
+
+<!-- PAGE: 报错静默 -->
+<div class="page" id="page-errsil">
+  <div class="card">
+    <div class="card-head"><span class="ci">🛑</span><h2>错误静默模式</h2></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">启用错误静默模式</div><div class="tl-sub">检测到模型报错后自动静默，恢复后引用回复最后一条</div></div>
+        <label class="switch"><input type="checkbox" id="es-enabled" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">管理员豁免</div><div class="tl-sub">管理员对话始终实时尝试，不缓存不拦截</div></div>
+        <label class="switch"><input type="checkbox" id="es-admin-exempt" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">群聊拦截</div><div class="tl-sub">关闭则群聊永远不会被静默</div></div>
+        <label class="switch"><input type="checkbox" id="es-block-group" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">私聊拦截</div><div class="tl-sub">关闭则私聊永远不会被静默</div></div>
+        <label class="switch"><input type="checkbox" id="es-block-private" checked/><span class="slider"></span></label>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">恢复回复继承人格</div><div class="tl-sub">重试成功后用当前人格的语气回复，而不是模型默认身份</div></div>
+        <label class="switch"><input type="checkbox" id="es-use-persona" checked/><span class="slider"></span></label>
+      </div>
+      <div class="row2" style="margin-top:13px">
+        <div class="field"><label>冷却时长（秒）</label><input type="number" id="es-cooldown" min="10"/></div>
+        <div class="field"><label>最大重试次数</label><input type="number" id="es-max-retries" min="1" max="20"/></div>
+      </div>
+      <div class="field"><label>每会话最大缓存消息数</label><input type="number" id="es-max-cache" min="10" max="2000"/></div>
+      <div class="field">
+        <label>报错识别正则</label>
+        <input type="text" id="es-pattern" placeholder="AstrBot\s*请求失败"/>
+        <div class="tl-sub" style="margin-top:5px">默认匹配 AstrBot 自带报错文案，一般不需要改</div>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📣</span><h2>管理员通知</h2></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">报错时通知管理员</div></div>
+        <label class="switch"><input type="checkbox" id="es-notify-admin" checked/><span class="slider"></span></label>
+      </div>
+      <div class="row2" style="margin-top:13px">
+        <div class="field"><label>同一错误去重时长（分钟）</label><input type="number" id="es-dedupe-min" min="1"/></div>
+        <div class="field"><label>限流窗口（分钟）</label><input type="number" id="es-rate-min" min="1"/></div>
+      </div>
+      <div class="field"><label>限流窗口内最多通知次数</label><input type="number" id="es-rate-count" min="1"/></div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">⏸️</span><h2>当前静默会话</h2><span class="badge" id="badge-es-active">0 个</span>
+      <button class="btn btn-ghost btn-sm" onclick="resetAllErrorSilence()">🗑️ 全部重置</button>
+    </div>
+    <div class="card-body" id="es-state-list"><div class="empty"><div class="ei">✅</div>当前没有静默中的会话</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">📋</span><h2>错误记录</h2>
+      <button class="btn btn-ghost btn-sm" onclick="clearErrorLog()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="es-error-log-list"><div class="empty"><div class="ei">✨</div>暂无报错记录</div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><span class="ci">🔁</span><h2>重试记录</h2>
+      <button class="btn btn-ghost btn-sm" onclick="clearRetryLog()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="es-retry-log-list"><div class="empty"><div class="ei">🌙</div>暂无重试记录</div></div>
+  </div>
+</div>
+
+<!-- PAGE: 日志监控 -->
+<div class="page" id="page-syslog">
+  <div class="card">
+    <div class="card-head"><span class="ci">📜</span><h2>日志监控设置</h2></div>
+    <div class="card-body">
+      <div class="tog-row" style="padding-top:0">
+        <div><div class="tl-name">启用日志监控</div><div class="tl-sub">自动归档控制台 WARNING/ERROR 日志（变黄/变红的那些）</div></div>
+        <label class="switch"><input type="checkbox" id="lm-enabled" checked/><span class="slider"></span></label>
+      </div>
+      <div class="field" style="margin-top:13px">
+        <label>捕获级别</label>
+        <select id="lm-min-level">
+          <option value="WARNING">WARNING 及以上（含黄+红）</option>
+          <option value="ERROR">仅 ERROR 及以上（只看红）</option>
+        </select>
+      </div>
+      <div class="row2">
+        <div class="field"><label>保留天数</label><input type="number" id="lm-retention" min="1"/></div>
+        <div class="field"><label>条数上限</label><input type="number" id="lm-max-entries" min="100"/></div>
+      </div>
+      <div class="field">
+        <label>AI 讲解模型</label>
+        <div id="lm-model-display" style="padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);font-size:13px;color:var(--texts)">跟随主模型</div>
+        <div class="tl-sub" style="margin-top:5px">前往 AstrBot 后台 → 插件配置 中选择</div>
+      </div>
+      <div class="tog-row">
+        <div><div class="tl-name">分析时继承人格</div><div class="tl-sub">关闭则用中立的技术专家身份回答</div></div>
+        <label class="switch"><input type="checkbox" id="lm-use-persona"/><span class="slider"></span></label>
+      </div>
+      <button class="btn btn-p btn-full" onclick="saveConfig()">💾 保存配置</button>
+    </div>
+  </div>
+
+  <div class="card" id="analysis-panel-card" style="display:none">
+    <div class="card-head"><span class="ci">🤖</span><h2>AI 分析</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeAnalysisPanel()">✕ 关闭</button>
+    </div>
+    <div class="card-body">
+      <div id="analysis-messages" style="display:flex;flex-direction:column;gap:9px;margin-bottom:11px;max-height:360px;overflow-y:auto"></div>
+      <div class="field" style="margin-bottom:8px"><textarea id="analysis-question" rows="2" placeholder="继续追问，比如「具体怎么改配置？」"></textarea></div>
+      <button class="btn btn-p btn-full btn-sm" onclick="sendAnalysisQuestion()">➤ 发送</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="ci">📋</span><h2>捕获到的日志</h2><span class="badge" id="badge-syslog">0 条</span>
+      <button class="btn btn-ghost btn-sm" onclick="testLogCapture()">🧪 测试</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearSysLog()">🗑️ 清空</button>
+    </div>
+    <div class="card-body" id="syslog-list"><div class="empty"><div class="ei">✨</div>暂无日志</div></div>
   </div>
 </div>
 
@@ -284,7 +447,7 @@ input:checked+.slider::before{transform:translateX(18px)}
   <div class="card">
     <div class="card-head"><span class="ci">ℹ️</span><h2>关于</h2></div>
     <div class="card-body" style="font-size:13px;color:var(--texts);line-height:1.9">
-      <p>🏮 <b style="color:var(--text)">Gatekeeper</b> · 门禁插件 v1.1.0</p>
+      <p>🏮 <b style="color:var(--text)">Gatekeeper</b> · 门禁插件 v1.3.3</p>
       <p>门禁系统 · 双模型验证 · 表情包缓存</p>
       <p>by 夕小柠 · 为 陆渊 bot 定制 🌸</p>
     </div>
@@ -296,49 +459,34 @@ input:checked+.slider::before{transform:translateX(18px)}
   <button class="nav-btn active" onclick="switchPage('gate',this)"><span class="ni">🚪</span>门禁</button>
   <button class="nav-btn" onclick="switchPage('dual',this)"><span class="ni">🧠</span>验证</button>
   <button class="nav-btn" onclick="switchPage('moji',this)"><span class="ni">🎭</span>表情</button>
+  <button class="nav-btn" onclick="switchPage('errsil',this)"><span class="ni">🛑</span>报错</button>
+  <button class="nav-btn" onclick="switchPage('syslog',this)"><span class="ni">📜</span>日志</button>
   <button class="nav-btn" onclick="switchPage('cfg',this)"><span class="ni">⚙️</span>设置</button>
 </nav>
 <div id="toast"></div>
 
 <script>
-/* ═══ Bridge SDK（内联 polyfill，与 sleep_sense 同款）═══ */
-if (!window.AstrBotPluginPage) {
-(function() {
-  const CHANNEL = "astrbot-plugin-page";
-  const SELF_ORIGIN = window.location.origin;
-  const pending = new Map();
-  let counter = 0, parentOrigin = null, resolveReady;
-  const readyPromise = new Promise(r => { resolveReady = r; });
-  const targetOrigin = () => (parentOrigin && parentOrigin !== "null") ? parentOrigin : (SELF_ORIGIN !== "null" ? SELF_ORIGIN : "*");
-  const send = (kind, payload) => window.parent.postMessage({ channel: CHANNEL, kind, ...(payload||{}) }, targetOrigin());
-  const makeReq = (action, payload) => new Promise((resolve, reject) => {
-    const requestId = "req_" + (++counter);
-    pending.set(requestId, { resolve, reject });
-    send("request", { requestId, action, ...(payload||{}) });
-  });
-  window.addEventListener("message", e => {
-    if (e.source !== window.parent) return;
-    if (parentOrigin && e.origin !== parentOrigin) return;
-    if (!parentOrigin) parentOrigin = e.origin;
-    const m = e.data;
-    if (!m || m.channel !== CHANNEL) return;
-    if (m.kind === "context") { if (resolveReady) { resolveReady(m.context); resolveReady = null; } return; }
-    if (m.kind === "response") {
-      const p = pending.get(m.requestId); if (!p) return;
-      pending.delete(m.requestId);
-      m.ok ? p.resolve(m.data) : p.reject(new Error(m.error || "bridge error"));
-    }
-  });
-  window.AstrBotPluginPage = {
-    ready: () => readyPromise,
-    apiGet:  (endpoint, params) => makeReq("api:get",  { endpoint, params }),
-    apiPost: (endpoint, body)   => makeReq("api:post", { endpoint, body }),
-  };
-  send("ready");
-  setTimeout(() => { if (resolveReady) { resolveReady({}); resolveReady = null; } }, 5000);
-})();
-}
+/* 这里原本内联了一份手写的 postMessage 桥（协议 channel:"astrbot-plugin-page" + kind）。
+   那个协议是猜的，和 AstrBot 真实 SDK 对不上；而且它挂在
+   `if (!window.AstrBotPluginPage)` 里，内联脚本又跑在 SDK 注入之前，
+   于是每次都会安装这份假桥 → 请求发出去没人应答 → 全部等到超时失败。
+   现在改成在 <head> 里显式引官方 /api/plugin/page/bridge-sdk.js，删掉这份自制品。
+   (3676 字符的 polyfill 已移除) */
 const bridge = window.AstrBotPluginPage;
+if (!bridge || typeof bridge.apiGet !== "function") {
+  // 走到这里说明 <head> 里的 bridge-sdk.js 没加载成功。
+  // 最常见的原因是直接输网址打开了这个页面——Page 必须在 AstrBot WebUI 的
+  // iframe 里运行才拿得到通信桥（它也无法绕过 bridge 复用 Dashboard 登录态）。
+  document.addEventListener("DOMContentLoaded", () => {
+    document.body.innerHTML =
+      '<div style="padding:24px;font:14px/1.9 system-ui;color:#333">' +
+      '<b>连不上插件接口</b><br>页面的通信桥没有加载。<br><br>' +
+      '<span style="opacity:.7">请从 AstrBot WebUI 的「插件 → 本插件 → 页面」进入，' +
+      '不要直接输网址访问。<br>如果本来就是从 WebUI 打开的，' +
+      '看启动日志里有没有「控制台已就绪」这一行。</span></div>';
+  });
+  throw new Error("AstrBotPluginPage 未加载");
+}
 const P = "astrbot_plugin_gatekeeper";
 
 // apiGet/apiPost 使用相对路径（不含插件名前缀），bridge 会自动拼接
@@ -376,10 +524,13 @@ function initThemeGrid() {
   });
 }
 async function saveTheme() {
-  // 主题存入后端config
-  const cfg = buildConfig();
-  cfg._theme = _theme;
-  try { await bridge.apiPost("config", { config: cfg }); } catch(e) { console.warn("theme save failed", e); }
+  // 只提交 _theme 这一个字段。
+  // 旧版本这里调了 buildConfig()，等于「点一下主题色 = 把整个表单当前状态全部保存」——
+  // 若在 loadConfig() 还没跑完时点主题，会把一整套默认值写死进配置。
+  // 后端现在是深合并，提交单个字段不会影响其它配置。
+  if (!_cfgLoaded) { console.warn('[gatekeeper] 配置尚未加载完成，跳过主题保存'); return; }
+  try { await bridge.apiPost("config_save", { config: { _theme: _theme } }); }
+  catch(e) { console.warn("theme save failed", e); }
 }
 
 /* ═══ 页面切换 ══════════════════════════════════════════════ */
@@ -420,6 +571,7 @@ function getTags(wrapId) {
 
 /* ═══ 配置 ══════════════════════════════════════════════════ */
 let _lastCfg = {};
+let _cfgLoaded = false;   // loadConfig() 是否已完成，避免配置没加载就保存把默认值写死
 async function loadConfig() {
   let c = {};
   try {
@@ -434,6 +586,7 @@ async function loadConfig() {
   initTag('admin-input','admin-wrap', c.admins||[]);
   const g=c.gate||{};
   setck('gate-enabled', g.enabled!==false);
+  setck('gate-del-friend', !!g.block_delete_friend);
   setv('gate-pending-msg', g.pending_msg||'稍等一下，等熙熙同意哦～');
   setv('gate-cache-limit', g.cache_limit??20);
   setv('gate-trigger',     g.trigger_threshold??5);
@@ -445,6 +598,7 @@ async function loadConfig() {
   const dm=c.dual_model||{};
   setck('dm-group',   dm.group_enabled!==false);
   setck('dm-private', dm.private_enabled!==false);
+  setck('dm-only-llm', dm.only_check_llm_reply!==false);
   setv('dm-min-len',     dm.min_length??100);
 
   const m=c.moji||{};
@@ -456,9 +610,39 @@ async function loadConfig() {
   setv('moji-sticker-size', m.sticker_max_size??512);
   document.getElementById('moji-limit-disp').textContent = m.cache_limit??500;
 
+  const sh=c.share||{};
+  setck('share-enabled', !!sh.enabled);
+  setv('share-max',  sh.max_shared??200);
+  setv('share-kb',   sh.max_file_kb??2048);
+  setv('share-dir',  sh.target_dir||'');
+
+  const es=c.error_silence||{};
+  setck('es-enabled',       es.enabled!==false);
+  setck('es-admin-exempt',  es.admin_exempt!==false);
+  setck('es-block-group',   es.block_group!==false);
+  setck('es-block-private', es.block_private!==false);
+  setck('es-use-persona',   es.use_persona!==false);
+  setv('es-cooldown',    es.cooldown_seconds??120);
+  setv('es-max-retries', es.max_retries??3);
+  setv('es-max-cache',   es.max_cache_messages??200);
+  setv('es-pattern',     es.error_pattern??'AstrBot\\s*请求失败');
+  setck('es-notify-admin', es.notify_admin!==false);
+  setv('es-dedupe-min',  es.notify_dedupe_minutes??30);
+  setv('es-rate-min',    es.notify_rate_limit_minutes??10);
+  setv('es-rate-count',  es.notify_rate_limit_count??5);
+
+  const lm=c.log_monitor||{};
+  setck('lm-enabled', lm.enabled!==false);
+  document.getElementById('lm-min-level').value = lm.min_level || 'WARNING';
+  setv('lm-retention',   lm.retention_days??7);
+  setv('lm-max-entries', lm.max_entries??2000);
+  setck('lm-use-persona', !!lm.use_persona_for_analysis);
+  document.getElementById('lm-model-display').textContent = lm.analysis_model || '跟随主模型';
+
   // 模型选择走 AstrBot 原生配置面板（_special: select_provider），此处只展示当前值
   document.getElementById('dm-judge-model-display').textContent = dm.judge_model || '跟随主模型';
   document.getElementById('moji-vision-model-display').textContent = m.vision_model || '跟随主模型';
+  _cfgLoaded = true;
 }
 
 function buildConfig() {
@@ -466,6 +650,7 @@ function buildConfig() {
     admins: getTags('admin-wrap'),
     gate:{
       enabled:                document.getElementById('gate-enabled').checked,
+      block_delete_friend:    document.getElementById('gate-del-friend').checked,
       pending_msg:            document.getElementById('gate-pending-msg').value,
       cache_limit:           +document.getElementById('gate-cache-limit').value,
       trigger_threshold:     +document.getElementById('gate-trigger').value,
@@ -478,6 +663,7 @@ function buildConfig() {
       group_enabled:   document.getElementById('dm-group').checked,
       private_enabled: document.getElementById('dm-private').checked,
       min_length:     +document.getElementById('dm-min-len').value,
+      only_check_llm_reply: document.getElementById('dm-only-llm').checked,
       judge_model:     _lastCfg?.dual_model?.judge_model || '',  // 只读，由后台配置面板管理
     },
     moji:{
@@ -489,14 +675,51 @@ function buildConfig() {
       sticker_max_size: +document.getElementById('moji-sticker-size').value,
       vision_model:    _lastCfg?.moji?.vision_model || '',  // 只读，由后台配置面板管理
     },
+    share:{
+      enabled:     document.getElementById('share-enabled').checked,
+      max_shared: +document.getElementById('share-max').value,
+      max_file_kb:+document.getElementById('share-kb').value,
+      target_dir:  document.getElementById('share-dir').value.trim(),
+    },
+    error_silence:{
+      enabled:         document.getElementById('es-enabled').checked,
+      admin_exempt:    document.getElementById('es-admin-exempt').checked,
+      block_group:     document.getElementById('es-block-group').checked,
+      block_private:   document.getElementById('es-block-private').checked,
+      use_persona:     document.getElementById('es-use-persona').checked,
+      cooldown_seconds:   +document.getElementById('es-cooldown').value,
+      max_retries:        +document.getElementById('es-max-retries').value,
+      max_cache_messages: +document.getElementById('es-max-cache').value,
+      error_pattern:       document.getElementById('es-pattern').value || 'AstrBot\\s*请求失败',
+      notify_admin:    document.getElementById('es-notify-admin').checked,
+      notify_dedupe_minutes:    +document.getElementById('es-dedupe-min').value,
+      notify_rate_limit_minutes:+document.getElementById('es-rate-min').value,
+      notify_rate_limit_count:  +document.getElementById('es-rate-count').value,
+    },
+    log_monitor:{
+      enabled:        document.getElementById('lm-enabled').checked,
+      min_level:      document.getElementById('lm-min-level').value,
+      retention_days: +document.getElementById('lm-retention').value,
+      max_entries:    +document.getElementById('lm-max-entries').value,
+      analysis_model: _lastCfg?.log_monitor?.analysis_model || '',  // 只读，由后台配置面板管理
+      use_persona_for_analysis: document.getElementById('lm-use-persona').checked,
+    },
     _theme,
   };
 }
 async function saveConfig() {
+  // 保存前先拉一次最新配置刷新快照。
+  // 那些「只读、由后台配置面板管理」的字段（judge_model / vision_model / analysis_model）
+  // 取自 _lastCfg，而 _lastCfg 是打开页面那一刻的快照——
+  // 如果中途去 AstrBot 原生面板改过模型，不刷新就会被这里的旧值覆盖回去。
+  try {
+    const fresh = await bridge.apiGet("config");
+    if (fresh) _lastCfg = (fresh && fresh.config) ? fresh.config : fresh;
+  } catch(e) { console.warn('[gatekeeper] 保存前刷新配置失败，将使用上次快照:', e); }
   const cfg = buildConfig();
   try {
     const res = await Promise.race([
-      bridge.apiPost("config", { config: cfg }),
+      bridge.apiPost("config_save", { config: cfg }),
       new Promise((_,rej) => setTimeout(()=>rej(new Error('保存超时')), 8000))
     ]);
     if (!res || (!res.ok && !res.success && res.status !== 'ok'))
@@ -586,6 +809,160 @@ async function clearGateState() {
   toast('🗑️ 已清除'); loadGateState();
 }
 
+/* ═══ 错误静默模式 ══════════════════════════════════════════ */
+const ES_STATUS={silenced:['s-silenced','静默中'],given_up:['s-givenup','已放弃']};
+async function loadErrorSilenceState() {
+  const d = await bridge.apiGet("error_silence_state");
+  const data = d || {};
+  const entries = Object.entries(data);
+  document.getElementById('badge-es-active').textContent = `${entries.length} 个`;
+  const el = document.getElementById('es-state-list');
+  if(!entries.length){ el.innerHTML='<div class="empty"><div class="ei">✅</div>当前没有静默中的会话</div>'; return; }
+  el.innerHTML = '<div class="gate-list">' + entries.sort((a,b)=>(b[1].last_error_at||'').localeCompare(a[1].last_error_at||'')).map(([key,info])=>{
+    const [sc,sl] = ES_STATUS[info.status] || ['s-pending','未知'];
+    const total = info.pending_total_count || 0;
+    const kindLabel = info.is_group ? `群聊 ${info.group_id||''}` : `私聊 ${info.display_name||key}`;
+    const until = info.silenced_until ? new Date(info.silenced_until*1000) : null;
+    const untilStr = until ? `${until.getMonth()+1}/${until.getDate()} ${String(until.getHours()).padStart(2,'0')}:${String(until.getMinutes()).padStart(2,'0')}` : '—';
+    return `<div class="gate-item"><div class="gi-head"><div class="gi-name">${esc(kindLabel)}</div><span class="sbadge ${sc}">${sl}</span></div>
+      <div class="gi-msgs">已缓存 ${total} 条消息 · 已重试 ${info.retry_count||0} 次 · 下次重试约 ${esc(untilStr)}</div>
+      <div class="btn-group"><button class="btn btn-warn btn-sm" onclick="resetErrorSilence('${esc(key)}')">🔄 立即重置</button></div></div>`;
+  }).join('') + '</div>';
+}
+async function resetErrorSilence(key) {
+  await bridge.apiPost("error_silence_reset", {session_key: key});
+  toast('🔄 已重置该会话'); loadErrorSilenceState();
+}
+async function resetAllErrorSilence() {
+  if(!confirm('确认重置全部静默会话？所有缓存的消息计数会被清除，不再自动重试旧错误。'))return;
+  await bridge.apiPost("error_silence_reset_all", {});
+  toast('🗑️ 已全部重置'); loadErrorSilenceState();
+}
+async function loadErrorLog() {
+  const d = await bridge.apiGet("error_log");
+  const all = Array.isArray(d) ? d : [];
+  const logs = all.slice().reverse().slice(0,30);
+  const el = document.getElementById('es-error-log-list');
+  if(!logs.length){ el.innerHTML='<div class="empty"><div class="ei">✨</div>暂无报错记录</div>'; return; }
+  el.innerHTML = '<div class="log-list">' + logs.map(l=>{
+    const where = l.is_group ? `群聊 ${l.group_id||''}` : `私聊 ${esc(l.name||l.session_key)}`;
+    return `<div class="log-item"><b>${where}</b> — ${esc(l.error_type||'未知错误')}${l.notified_admin?' <span style="color:var(--err)">📣已通知</span>':''}
+      <div class="log-orig">${esc((l.error_text||'').slice(0,150))}</div>
+      <div class="log-time">${(l.time||'').slice(0,16)}</div></div>`;
+  }).join('') + '</div>';
+}
+async function clearErrorLog() {
+  if(!confirm('确认清空全部错误记录？'))return;
+  await bridge.apiPost("error_log_clear", {});
+  toast('🗑️ 错误记录已清空'); loadErrorLog();
+}
+async function loadRetryLog() {
+  const d = await bridge.apiGet("retry_log");
+  const all = Array.isArray(d) ? d : [];
+  const logs = all.slice().reverse().slice(0,30);
+  const el = document.getElementById('es-retry-log-list');
+  if(!logs.length){ el.innerHTML='<div class="empty"><div class="ei">🌙</div>暂无重试记录</div>'; return; }
+  const RL={success:'✅ 成功',fail:'🔁 失败，将继续重试',give_up:'🛑 已放弃'};
+  el.innerHTML = '<div class="log-list">' + logs.map(l=>`<div class="log-item ${l.result==='success'?'lg':''}"><b>${esc(l.name||l.session_key)}</b> 第${l.retry_count}次重试 → ${RL[l.result]||l.result}<div class="log-time">${(l.time||'').slice(0,16)}</div></div>`).join('') + '</div>';
+}
+async function clearRetryLog() {
+  if(!confirm('确认清空全部重试记录？'))return;
+  await bridge.apiPost("retry_log_clear", {});
+  toast('🗑️ 重试记录已清空'); loadRetryLog();
+}
+
+/* ═══ 日志监控 + AI 讲解 ═══════════════════════════════════════ */
+let _sysLogEntries = [];
+let _currentAnalysisId = null;
+
+async function loadSysLog() {
+  const d = await bridge.apiGet("sys_log");
+  const all = Array.isArray(d) ? d : [];
+  _sysLogEntries = all;
+  document.getElementById('badge-syslog').textContent = `${all.length} 条`;
+  const logs = all.slice().reverse().slice(0,50);
+  const el = document.getElementById('syslog-list');
+  if(!logs.length){ el.innerHTML='<div class="empty"><div class="ei">✨</div>暂无日志</div>'; return; }
+  el.innerHTML = '<div class="log-list">' + logs.map(l=>{
+    const lvl = (l.level||'WARNING').toUpperCase();
+    return `<div class="log-item lvl-${lvl}">
+      <span class="lvl-tag ${lvl}">${lvl}</span><b>${esc(l.logger||'')}</b>
+      <div class="log-orig">${esc((l.message||'').slice(0,200))}</div>
+      <div class="log-time">${(l.time||'').slice(0,19).replace('T',' ')}</div>
+      <button class="btn btn-p btn-sm" style="margin-top:7px" onclick="openAnalysisById('${esc(l.id)}')">🤖 AI分析</button>
+    </div>`;
+  }).join('') + '</div>';
+}
+async function clearSysLog() {
+  if(!confirm('确认清空全部日志记录？'))return;
+  await bridge.apiPost("sys_log_clear", {});
+  toast('🗑️ 日志已清空'); loadSysLog();
+}
+async function testLogCapture() {
+  await bridge.apiPost("log_capture_test", {});
+  toast('🧪 已发出一条测试日志，约20秒后刷新本页查看是否捕获到');
+  setTimeout(loadSysLog, 21000);
+}
+
+function renderAnalysisMessages(messages) {
+  const el = document.getElementById('analysis-messages');
+  el.innerHTML = (messages||[]).map(m=>
+    `<div class="chat-bubble ${m.role==='user'?'user':'assistant'}">${esc(m.content||'')}</div>`
+  ).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function openAnalysisById(logId) {
+  const entry = _sysLogEntries.find(e => e.id === logId);
+  if(!entry){ toast('未找到该日志条目'); return; }
+  document.getElementById('analysis-panel-card').style.display = '';
+  document.getElementById('analysis-messages').innerHTML = '<div class="chat-bubble assistant">🤔 分析中，请稍候…</div>';
+  document.getElementById('analysis-panel-card').scrollIntoView({behavior:'smooth', block:'start'});
+  try {
+    const res = await bridge.apiPost("log_analyze", { log_entry: entry });
+    if (res && res.analysis_id) {
+      _currentAnalysisId = res.analysis_id;
+      renderAnalysisMessages(res.messages);
+    } else {
+      document.getElementById('analysis-messages').innerHTML = `<div class="chat-bubble assistant">❌ 分析失败：${esc((res && res.msg) || '未知错误')}</div>`;
+      toast((res && res.msg) || '分析失败');
+    }
+  } catch(e) {
+    document.getElementById('analysis-messages').innerHTML = `<div class="chat-bubble assistant">❌ 分析请求失败：${esc(e.message)}</div>`;
+    toast('❌ 分析请求失败：' + e.message);
+  }
+}
+
+async function sendAnalysisQuestion() {
+  const input = document.getElementById('analysis-question');
+  const q = input.value.trim();
+  if(!q){ toast('请输入追问内容'); return; }
+  if(!_currentAnalysisId){ toast('请先点开一条日志的「AI分析」'); return; }
+  input.value = '';
+  const el = document.getElementById('analysis-messages');
+  el.innerHTML += `<div class="chat-bubble user">${esc(q)}</div><div class="chat-bubble assistant" id="analysis-pending">🤔 思考中…</div>`;
+  el.scrollTop = el.scrollHeight;
+  try {
+    const res = await bridge.apiPost("log_analyze", { analysis_id: _currentAnalysisId, question: q });
+    if (res && res.messages) {
+      renderAnalysisMessages(res.messages);
+    } else {
+      document.getElementById('analysis-pending')?.remove();
+      input.value = q; // 还原问题文字，避免白白丢失
+      toast((res && res.msg) || '追问失败');
+    }
+  } catch(e) {
+    document.getElementById('analysis-pending')?.remove();
+    input.value = q;
+    toast('❌ 追问失败：' + e.message);
+  }
+}
+
+function closeAnalysisPanel() {
+  document.getElementById('analysis-panel-card').style.display = 'none';
+  _currentAnalysisId = null;
+}
+
 /* ═══ 工具 ══════════════════════════════════════════════════ */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function fmtTs(ts){if(!ts)return'';const d=new Date(ts*1e3);return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
@@ -605,7 +982,11 @@ function fmtTs(ts){if(!ts)return'';const d=new Date(ts*1e3);return`${d.getMonth(
   await loadGateLog();
   await loadInterceptLog();
   await loadMoji();
-  setInterval(()=>{ loadGateState(); loadInterceptLog(); }, 30000);
+  await loadErrorSilenceState();
+  await loadErrorLog();
+  await loadRetryLog();
+  await loadSysLog();
+  setInterval(()=>{ loadGateState(); loadInterceptLog(); loadErrorSilenceState(); loadSysLog(); }, 30000);
 })();
 </script>
 </body>

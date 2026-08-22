@@ -8,37 +8,278 @@
     "description": "门禁系统配置",
     "type": "object",
     "items": {
-      "enabled": { "description": "启用门禁", "type": "bool", "default": true },
-      "pending_msg": { "description": "触发阈值后发给对方的消息", "type": "string", "default": "稍等一下，等熙熙同意哦～" },
-      "cache_limit": { "description": "消息缓存上限", "type": "int", "default": 20 },
-      "trigger_threshold": { "description": "触发请示的消息条数", "type": "int", "default": 5 },
-      "observe_interval_hours": { "description": "观察轮次间隔（小时）", "type": "int", "default": 2 },
-      "observe_max_rounds": { "description": "最大观察轮数，超过后自动拒绝", "type": "int", "default": 3 }
+      "enabled": {
+        "description": "启用门禁",
+        "type": "bool",
+        "default": true
+      },
+      "block_delete_friend": {
+        "description": "拉黑时同时删除好友（不可逆，默认关闭）",
+        "type": "bool",
+        "default": false,
+        "hint": "打开后，管理员回复「拉黑」会连带把对方从好友里删掉。删好友无法撤销，对方要重新加你才能再联系，确认需要再开。关闭时只加黑名单（同样会拦截）。"
+      },
+      "pending_msg": {
+        "description": "触发阈值后发给对方的消息",
+        "type": "string",
+        "default": "稍等一下，等熙熙同意哦～"
+      },
+      "cache_limit": {
+        "description": "消息缓存上限",
+        "type": "int",
+        "default": 20
+      },
+      "trigger_threshold": {
+        "description": "触发请示的消息条数",
+        "type": "int",
+        "default": 5
+      },
+      "observe_interval_hours": {
+        "description": "观察轮次间隔（小时）",
+        "type": "int",
+        "default": 2
+      },
+      "observe_max_rounds": {
+        "description": "最大观察轮数，超过后自动拒绝",
+        "type": "int",
+        "default": 3
+      }
     }
   },
-  "gate_whitelist": { "description": "白名单QQ号", "type": "list", "default": [] },
-  "gate_blacklist": { "description": "黑名单QQ号", "type": "list", "default": [] },
+  "gate_whitelist": {
+    "description": "白名单QQ号",
+    "type": "list",
+    "default": []
+  },
+  "gate_blacklist": {
+    "description": "黑名单QQ号",
+    "type": "list",
+    "default": []
+  },
   "dual_model": {
     "description": "双模型验证配置",
     "type": "object",
     "items": {
-      "group_enabled": { "description": "群聊开启拦截", "type": "bool", "default": true },
-      "private_enabled": { "description": "私聊开启拦截（管理员除外）", "type": "bool", "default": true },
-      "min_length": { "description": "触发检测的最小字数", "type": "int", "default": 100 },
-      "judge_model": { "description": "验证与生成用的模型（留空=主模型）", "type": "string", "default": "", "_special": "select_provider", "hint": "选择已配置好的模型提供商，留空则使用主模型" }
+      "group_enabled": {
+        "description": "群聊开启拦截",
+        "type": "bool",
+        "default": true
+      },
+      "private_enabled": {
+        "description": "私聊开启拦截（管理员除外）",
+        "type": "bool",
+        "default": true
+      },
+      "only_check_llm_reply": {
+        "description": "只检查模型生成的回复（推荐开启）",
+        "type": "bool",
+        "default": true,
+        "hint": "开启后只对 LLM 生成的回复做思维链检测，不会误伤其它插件输出的长文本。如果你的环境里检测完全不触发，可以关掉它退回「检查所有回复」的旧行为。"
+      },
+      "min_length": {
+        "description": "触发检测的最小字数",
+        "type": "int",
+        "default": 100
+      },
+      "judge_model": {
+        "description": "验证与生成用的模型（留空=主模型）",
+        "type": "string",
+        "default": "",
+        "_special": "select_provider",
+        "hint": "选择已配置好的模型提供商，留空则使用主模型"
+      }
     }
   },
   "moji": {
     "description": "表情包缓存配置",
     "type": "object",
     "items": {
-      "group_enabled": { "description": "群聊识别表情包", "type": "bool", "default": true },
-      "private_enabled": { "description": "私聊识别表情包", "type": "bool", "default": true },
-      "admin_enabled": { "description": "管理员私聊也识别", "type": "bool", "default": false },
-      "no_read_enabled": { "description": "完全不读取表情包", "type": "bool", "default": false },
-      "cache_limit": { "description": "缓存上限（最多500）", "type": "int", "default": 500 },
-      "sticker_max_size": { "description": "表情包尺寸上限（像素，长边超过此值视为照片不缓存，0=不限制）", "type": "int", "default": 512 },
-      "vision_model": { "description": "视觉识别模型（已优先使用AstrBot后台「默认图片转述模型」，此项仅作降级备用）", "type": "string", "default": "", "_special": "select_provider", "hint": "插件会优先调用 AstrBot 后台「服务提供商→默认图片转述模型」，只有那个失败时才会用这里选的模型" }
+      "group_enabled": {
+        "description": "群聊识别表情包",
+        "type": "bool",
+        "default": true
+      },
+      "private_enabled": {
+        "description": "私聊识别表情包",
+        "type": "bool",
+        "default": true
+      },
+      "admin_enabled": {
+        "description": "管理员私聊也识别",
+        "type": "bool",
+        "default": false
+      },
+      "no_read_enabled": {
+        "description": "完全不读取表情包",
+        "type": "bool",
+        "default": false
+      },
+      "cache_limit": {
+        "description": "缓存上限（最多500）",
+        "type": "int",
+        "default": 500,
+        "hint": "硬上限 500，填更大也会按 500 生效。超出时优先淘汰「使用次数最少」，次数相同则淘汰「最久没用过」的。"
+      },
+      "sticker_max_size": {
+        "description": "表情包尺寸上限（像素，长边超过此值视为照片不缓存，0=不限制）",
+        "type": "int",
+        "default": 512
+      },
+      "vision_model": {
+        "description": "视觉识别模型（已优先使用AstrBot后台「默认图片转述模型」，此项仅作降级备用）",
+        "type": "string",
+        "default": "",
+        "_special": "select_provider",
+        "hint": "插件会优先调用 AstrBot 后台「服务提供商→默认图片转述模型」，只有那个失败时才会用这里选的模型"
+      }
     }
+  },
+  "error_silence": {
+    "description": "模型报错静默模式配置：检测到模型报错后自动静默一段时间，期间缓存消息不回复，冷却后自动重试，成功则引用回复最后一条消息",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用错误静默模式",
+        "type": "bool",
+        "default": true
+      },
+      "admin_exempt": {
+        "description": "管理员对话不受静默影响（管理员消息始终实时尝试，不缓存不拦截）",
+        "type": "bool",
+        "default": true
+      },
+      "block_group": {
+        "description": "群聊触发静默时拦截消息（关闭=群聊永远不静默，报错也照常重试）",
+        "type": "bool",
+        "default": true
+      },
+      "block_private": {
+        "description": "私聊触发静默时拦截消息（关闭=私聊永远不静默）",
+        "type": "bool",
+        "default": true
+      },
+      "cooldown_seconds": {
+        "description": "每轮静默冷却时长（秒），到时后自动尝试重试",
+        "type": "int",
+        "default": 120
+      },
+      "max_retries": {
+        "description": "最大自动重试次数，超过后停止自动重试（直到管理员手动重置，或检测到模型恢复）",
+        "type": "int",
+        "default": 3
+      },
+      "max_cache_messages": {
+        "description": "静默期间每个会话最多缓存的消息条数（超过只保留最近的，但累计条数仍会准确统计）",
+        "type": "int",
+        "default": 200
+      },
+      "error_pattern": {
+        "description": "识别模型报错文案的正则表达式（默认匹配AstrBot自带报错文案，可按需自定义）",
+        "type": "string",
+        "default": "AstrBot\\s*请求失败"
+      },
+      "use_persona": {
+        "description": "恢复回复时继承当前人格（system_prompt），关闭则用模型默认身份回复",
+        "type": "bool",
+        "default": true
+      },
+      "notify_admin": {
+        "description": "报错时是否通知管理员",
+        "type": "bool",
+        "default": true
+      },
+      "notify_dedupe_minutes": {
+        "description": "同一错误在此时间内不重复通知管理员（分钟）",
+        "type": "int",
+        "default": 30
+      },
+      "notify_rate_limit_count": {
+        "description": "通知频率限制：滑动时间窗口内最多发送次数",
+        "type": "int",
+        "default": 5
+      },
+      "notify_rate_limit_minutes": {
+        "description": "通知频率限制：滑动时间窗口长度（分钟）",
+        "type": "int",
+        "default": 10
+      }
+    }
+  },
+  "log_monitor": {
+    "description": "日志监控配置：自动归档 AstrBot 控制台的 WARNING/ERROR 日志（变黄/变红的那些），并支持AI分析报错原因+解决办法，可继续追问",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用日志监控",
+        "type": "bool",
+        "default": true
+      },
+      "min_level": {
+        "description": "捕获的最低日志级别",
+        "type": "string",
+        "default": "WARNING",
+        "options": [
+          "WARNING",
+          "ERROR"
+        ]
+      },
+      "retention_days": {
+        "description": "日志保留天数，超过自动清理（默认约一周清一次）",
+        "type": "int",
+        "default": 7
+      },
+      "max_entries": {
+        "description": "日志条数硬上限（兜底，避免极端情况下文件无限增长）",
+        "type": "int",
+        "default": 2000
+      },
+      "analysis_model": {
+        "description": "AI 讲解使用的模型（留空=跟随主模型）",
+        "type": "string",
+        "default": "",
+        "_special": "select_provider",
+        "hint": "选择用于分析报错日志的模型提供商，留空则使用当前默认模型"
+      },
+      "use_persona_for_analysis": {
+        "description": "分析报错时继承当前人格来回答（关闭=用中立的技术专家身份回答）",
+        "type": "bool",
+        "default": false
+      }
+    }
+  },
+  "share": {
+    "description": "表情包共享给 quote_tag：把识别过的表情包写进 astrbot_plugin_quote_tag 的表情包库，这样 bot 不只是能看懂别人发的表情包，还能自己发出来",
+    "type": "object",
+    "items": {
+      "enabled": {
+        "description": "启用表情包共享（需要装 astrbot_plugin_quote_tag）",
+        "type": "bool",
+        "default": false,
+        "hint": "开启后，每张新识别的表情包会以「描述.png」的文件名写进 quote_tag 的 stickers/ 目录，文件名就是 LLM 输出 〔表情包:名字〕 时要用的名字。没装 quote_tag 时会自动跳过。"
+      },
+      "max_shared": {
+        "description": "最多共享多少个表情包",
+        "type": "int",
+        "default": 200,
+        "hint": "超出后只删除**本插件写进去的**最老的那些，你手动上传的表情包永远不会被碰。"
+      },
+      "max_file_kb": {
+        "description": "单个表情包文件大小上限（KB）",
+        "type": "int",
+        "default": 2048
+      },
+      "target_dir": {
+        "description": "quote_tag 表情包目录（留空=自动推算，一般不用填）",
+        "type": "string",
+        "default": "",
+        "hint": "默认自动找同级的 data/plugin_data/astrbot_plugin_quote_tag/stickers。只有目录被你改过才需要手填绝对路径。"
+      }
+    }
+  },
+  "_theme": {
+    "description": "管理面板主题（由插件页面自动写入，无需手动修改）",
+    "type": "string",
+    "default": "kitty",
+    "hint": "在插件自带的管理面板里点选主题色即可，这里一般不用动"
   }
 }
